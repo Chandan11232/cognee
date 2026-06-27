@@ -1,5 +1,5 @@
-from typing import List, Optional
 import asyncio
+from typing import List, Optional
 
 from cognee.infrastructure.context.BaseContextProvider import BaseContextProvider
 from cognee.infrastructure.engine import DataPoint
@@ -77,16 +77,19 @@ class TripletSearchContextProvider(BaseContextProvider):
 
         return "\n".join(triplets) if triplets else "No relevant context found."
 
-    async def get_context(self, entities: List[DataPoint], query: str) -> str:
-        """Get context for each entity using brute force triplet search."""
-        if not entities:
-            return "No entities provided for context search."
 
-        memory_fragment = await get_memory_fragment(self.properties_to_project)
-        search_tasks = self._get_search_tasks(entities, query, memory_fragment)
+async def get_context(self, entities: List[DataPoint], query: str) -> str:
+    """Get context for each entity using brute force triplet search."""
+    if not entities:
+        return "No entities provided for context search."
 
-        if not search_tasks:
-            return "No valid entities found for context search."
+    valid_entities = [entity for entity in entities if self._get_entity_text(entity) is not None]
 
-        results = await asyncio.gather(*search_tasks)
-        return await self._results_to_context(entities, results)
+    if not valid_entities:
+        return "No valid entities found for context search."
+
+    memory_fragment = await get_memory_fragment(self.properties_to_project)
+    search_tasks = self._get_search_tasks(valid_entities, query, memory_fragment)
+
+    results = await asyncio.gather(*search_tasks)
+    return await self._results_to_context(valid_entities, results)
