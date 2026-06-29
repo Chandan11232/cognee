@@ -152,6 +152,29 @@ class LLMConfig(BaseSettings):
             self.baml_registry.set_primary(self.baml_llm_provider)
 
     @model_validator(mode="after")
+    def validate_tokenizer_mismatch(self) -> "LLMConfig":
+        """
+        Advisory check to warn users if their selected tokenizer framework
+        does not match their chosen LLM provider.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        provider = self.llm_provider.lower() if self.llm_provider else ""
+        framework = self.structured_output_framework.lower() if self.structured_output_framework else ""
+
+        # Catch if the provider is local (ollama/llama_cpp) but the framework targets OpenAI/instructor tokenizers
+        if provider in ["ollama", "llama_cpp"] and ("instructor" in framework or "openai" in framework):
+            logger.warning(
+                f"⚠️ WARNING: Tokenizer/Framework mismatch detected. "
+                f"Your LLM provider is set to '{self.llm_provider}', but your structured output framework "
+                f"is configured for '{self.structured_output_framework}'. This mismatch may cause "
+                f"incorrect token counting or string parsing errors during graph extraction."
+            )
+
+        return self
+
+    @model_validator(mode="after")
     def ensure_env_vars_for_ollama(self) -> "LLMConfig":
         """
         Validate required environment variables for the 'ollama' LLM provider.
