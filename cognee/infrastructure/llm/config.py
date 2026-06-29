@@ -169,6 +169,31 @@ class LLMConfig(BaseSettings):
             # Skip checks unless provider is "ollama"
             return self
 
+        # --- Advisory Model Validation Logic ---
+        import logging
+        logger = logging.getLogger(__name__)
+
+        VALIDATED_OLLAMA_MODELS = ["llama3", "llama3:8b", "phi3"]
+        KNOWN_BAD_OLLAMA_MODELS = ["qwen2.5", "mistral"]
+
+        model_name = self.llm_model.lower() if self.llm_model else ""
+
+        # Check if the model is explicitly known to struggle with graph/structured extraction
+        if any(bad_model in model_name for bad_model in KNOWN_BAD_OLLAMA_MODELS):
+            logger.warning(
+                f"⚠️ WARNING: You are using Ollama model '{self.llm_model}'. "
+                f"This model is known to have poor structured-output/JSON-schema support, "
+                f"which may break end-to-end graph extraction. "
+                f"Please refer to docs/ollama_models.md for recommended alternatives."
+            )
+        # Check if it's simply an unvalidated model
+        elif model_name and not any(valid_model in model_name for valid_model in VALIDATED_OLLAMA_MODELS):
+            logger.warning(
+                f"⚠️ NOTICE: '{self.llm_model}' is not an explicitly validated Ollama model for cognee extraction. "
+                f"If you encounter graph extraction failures, check docs/ollama_models.md for supported alternatives."
+            )
+        # ----------------------------------------
+
         def is_env_set(var_name: str) -> bool:
             """
             Check if a given environment variable is set and non-empty.
